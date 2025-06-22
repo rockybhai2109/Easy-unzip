@@ -1,9 +1,10 @@
-# Telegram Bot Core
+# Telegram framework
 pyrogram
 TgCrypto
 
-# For loading environment variables
+# Environment variable handling
 python-dotenv
 
-# For handling .7z archives
+# Archive formats
 py7zr
+rarfile

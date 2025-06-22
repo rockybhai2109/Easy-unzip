@@ -28,6 +28,7 @@ import time
 import logging
 import py7zr
 import zipfile
+import rarfile # <--- ADDED: For .rar file support
 import shutil
 import sys
 from datetime import datetime
@@ -297,7 +298,7 @@ class UltimateBot:
         """Handles incoming messages."""
         if message.text and message.text.lower() == '/start':
             await self.send_text(message.chat.id, (
-                "👋 Hello! Send me a `.zip` or `.7z` archive and I'll unzip it and let you choose which files to download."
+                "👋 Hello! Send me a `.zip`, `.7z`, or `.rar` archive and I'll unzip it and let you choose which files to download."
             ))
             return
 
@@ -314,8 +315,9 @@ class UltimateBot:
                 await self.send_text(message.chat.id, "❌ Unable to process: File details missing.")
                 return
 
-            if not (file_name.lower().endswith(('.zip', '.7z'))):
-                return await self.send_text(message.chat.id, "❌ Only `.zip` and `.7z` files are supported.")
+            # MODIFIED: Added '.rar' to the list of supported extensions
+            if not (file_name.lower().endswith(('.zip', '.7z', '.rar'))):
+                return await self.send_text(message.chat.id, "❌ Only `.zip`, `.7z`, and `.rar` files are supported.")
 
             if remote_file_unique_id in self.active_downloads:
                 return await self.send_text(message.chat.id, "⏳ Already processing this file. Please wait.")
@@ -385,13 +387,21 @@ class UltimateBot:
 
             await self.edit_text(chat_id, status_id, f"📦 Unzipping `{file_name}`...")
 
-            # Extract the archive based on its extension
+            # --- MODIFIED: Added extraction logic for .rar files ---
             if file_name.lower().endswith('.zip'):
                 with zipfile.ZipFile(local_file_path, 'r') as z:
                     z.extractall(download_dir)
             elif file_name.lower().endswith('.7z'):
                 with py7zr.SevenZipFile(local_file_path, 'r') as z:
                     z.extractall(path=download_dir)
+            elif file_name.lower().endswith('.rar'):
+                try:
+                    with rarfile.RarFile(local_file_path, 'r') as z:
+                        z.extractall(path=download_dir)
+                except rarfile.UNRAR_TOOL_MISSING_ERROR:
+                    logger.error("RAR EXTRACTION FAILED: The 'unrar' command was not found on the server.")
+                    raise RuntimeError("Server is not configured to handle RAR files (the 'unrar' command is missing). Please contact the bot administrator.")
+            # --- End of modification ---
 
             # Get a flattened list of all extracted files (recursive)
             extracted_files = _recursively_list_files(download_dir)
