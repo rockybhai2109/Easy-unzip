@@ -340,10 +340,8 @@ class UltimateBot:
             # Process the file in a background task to not block the main event loop
             asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
 
-    async def process_file(self, chat_id: int, document: types.Document, remote_file_unique_id: str, client: Client):
-        """
-        Handles the download, extraction, and presentation of files for selection.
-        """
+            async def process_file(self, chat_id: int, document: types.Document, remote_file_unique_id: str, client: Client):
+             """ Handles the download, extraction, and presentation of files for selection. """
         file_name = document.file_name
         file_size_from_tg = document.file_size # Get file size directly from message.document
         
@@ -379,7 +377,7 @@ class UltimateBot:
             # Download the archive. Pyrogram will automatically pass document.file_size as 'total' to progress_callback_func.
             await client.download_media(
                 document.file_id,
-                file_name=local_file_path,
+                file_name=str(local_file_path),
                 progress=progress_callback_func,
                 progress_args=(progress_client_data,) 
             )
@@ -387,7 +385,7 @@ class UltimateBot:
 
             await self.edit_text(chat_id, status_id, f"📦 Unzipping `{file_name}`...")
 
-            # --- MODIFIED: Added extraction logic for .rar files ---
+            # --- Extraction logic with corrected error handling ---
             if file_name.lower().endswith('.zip'):
                 with zipfile.ZipFile(local_file_path, 'r') as z:
                     z.extractall(download_dir)
@@ -398,7 +396,8 @@ class UltimateBot:
                 try:
                     with rarfile.RarFile(local_file_path, 'r') as z:
                         z.extractall(path=download_dir)
-                except rarfile.UNRAR_TOOL_MISSING_ERROR:
+                # MODIFIED: Corrected the exception name from the error log
+                except rarfile.RarCannotExec:
                     logger.error("RAR EXTRACTION FAILED: The 'unrar' command was not found on the server.")
                     raise RuntimeError("Server is not configured to handle RAR files (the 'unrar' command is missing). Please contact the bot administrator.")
             # --- End of modification ---
