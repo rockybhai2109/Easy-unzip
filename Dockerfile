@@ -1,8 +1,12 @@
 # Use a suitable base image. Python 3.13 is used here as per your logs.
 FROM python:3.13-slim
+
 # Install unrar and other necessary system dependencies.
 # apt-get update is crucial before installing new packages.
-RUN apt-get update && apt-get install -y unrar
+# Enable non-free repository and then install unrar
+RUN sed -i -E 's/ main$/ main contrib non-free/' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y unrar
 
 # Set the working directory inside the container.
 WORKDIR /app
