@@ -3,13 +3,14 @@ FROM python:3.13-slim
 
 # Create a new sources list file to enable contrib and non-free repositories
 # for Debian Bookworm (which python:3.13-slim is based on).
+# Install build-essential along with unrar
 RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list.d/debian.list && \
     echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list.d/debian.list && \
     echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list.d/debian.list && \
     # Now update apt lists with the new sources
     apt-get update && \
-    # Install unrar
-    apt-get install -y unrar && \
+    # Install unrar and build-essential
+    apt-get install -y unrar build-essential && \
     # Clean up apt cache to keep the image size small
     rm -rf /var/lib/apt/lists/*
 
