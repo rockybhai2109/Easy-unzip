@@ -72,7 +72,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("bot.log", encoding="utf-8"), # Log to a file, ensure UTF-8
-        logging.StreamHandler(sys.stdout)         # Also log to console
+        logging.StreamHandler(sys.stdout)      # Also log to console
     ]
 )
 logger = logging.getLogger(__name__)
@@ -187,7 +187,7 @@ class UltimateBot:
         #                    'main_message_id': int, # The message containing the selection keyboard
         #                    'current_page': int,    # Current page being displayed
         #                    'total_pages': int}     # Total number of pages
-        #         }
+        #           }
         self.user_extraction_sessions: Dict[int, Dict[str, Any]] = {}
 
     async def _get_client(self) -> Client:
@@ -607,114 +607,87 @@ class UltimateBot:
         finally:
             # Perform cleanup if the action warrants it
             if perform_cleanup:
-                logger.info(f"Cleaning up session data and directory for chat {chat_id}")
-                if temp_dir.exists():
-                    shutil.rmtree(temp_dir, ignore_errors=True)
-                    logger.debug(f"Cleaned up directory: {temp_dir}")
-                if chat_id in self.user_extraction_sessions:
-                    del self.user_extraction_sessions[chat_id]
+                self._cleanup_session(chat_id)
 
+    def _cleanup_session(self, chat_id: int):
+        """Removes session data and temporary files for a given chat_id."""
+        if chat_id in self.user_extraction_sessions:
+            session_data = self.user_extraction_sessions.pop(chat_id)
+            temp_dir = session_data.get('temp_dir')
+            if temp_dir and temp_dir.exists():
+                logger.info(f"Cleaning up directory for chat {chat_id}: {temp_dir}")
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"Session for chat {chat_id} has been cleared.")
+        else:
+            logger.warning(f"Attempted to clean up non-existent session for chat {chat_id}")
 
-    async def send_text(self, chat_id: int, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None) -> Optional[types.Message]:
-        """Sends a text message to a given chat ID."""
+    # --- Wrapper methods for Pyrogram client actions with error handling ---
+    async def send_text(self, chat_id: int, text: str, **kwargs):
         try:
-            return await self.client.send_message(
-                chat_id=chat_id,
-                text=text,
-                parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=reply_markup,
-                disable_web_page_preview=True # Prevent link previews for cleaner messages
-            )
-        except Exception as e:
-            logger.error(f"Failed to send text message to {chat_id}: {e}")
-            return None
+            return await self.client.send_message(chat_id, text, **kwargs)
+        except RPCError as e:
+            logger.error(f"Failed to send message to {chat_id}: {e}")
+        return None
 
-    async def edit_text(self, chat_id: int, message_id: int, text: str, reply_markup: Optional[InlineKeyboardMarkup] = None):
-        """Edits an existing text message."""
+    async def edit_text(self, chat_id: int, message_id: int, text: str, **kwargs):
         try:
-            await self.client.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=text,
-                parse_mode=enums.ParseMode.MARKDOWN,
-                reply_markup=reply_markup,
-                disable_web_page_preview=True # Prevent link previews for cleaner messages
-            )
-        except Exception as e:
-            # This can happen if the message is too old, user has already edited/deleted it, or Telegram API limits
-            logger.warning(f"Failed to edit message {message_id} in chat {chat_id}: {e}")
+            return await self.client.edit_message_text(chat_id, message_id, text, **kwargs)
+        except RPCError as e:
+            logger.warning(f"Failed to edit message {message_id} in {chat_id}: {e}")
+        return None
 
-    async def send_document(self, chat_id: int, file_path: str, caption: str):
-        """Sends a document (file) to a given chat ID."""
+    async def send_document(self, chat_id: int, document: str, **kwargs):
         try:
-            await self.client.send_document(
-                chat_id=chat_id,
-                document=file_path,
-                caption=caption,
-                parse_mode=enums.ParseMode.MARKDOWN,
-                disable_notification=True # Send silently
+            return await self.client.send_document(chat_id, document, **kwargs)
+        except RPCError as e:
+            logger.error(f"Failed to send document to {chat_id}: {e}")
+        return None
+
+    def register_handlers(self):
+        """Registers all the necessary handlers with the client."""
+        if not self.client:
+            raise RuntimeError("Client not initialized. Call _get_client first.")
+        
+        # Handler for new messages (documents, /start)
+        self.client.add_handler(
+            MessageHandler(
+                self.new_message_handler,
+                filters=filters.document | filters.command("start")
             )
-        except Exception as e:
-            # This specific exception is caught by the retry loop in callback_query_handler
-            # This 'send_document' function itself will only raise it for the retry logic to catch
-            # Or if called directly outside the retry loop, it will just log here.
-            logger.error(f"send_document failed for {file_path} to {chat_id}: {e}", exc_info=True)
-            raise # Re-raise for the retry loop to catch
+        )
+        # Handler for button presses on the inline keyboard
+        self.client.add_handler(
+            CallbackQueryHandler(self.callback_query_handler)
+        )
+        logger.info("Message and callback handlers have been registered.")
 
     async def run(self):
-        """Starts and runs the bot."""
+        """Initializes the client, registers handlers, and starts the bot."""
         self.client = await self._get_client()
-
-        # Register handlers for different types of updates
-        self.client.add_handler(MessageHandler(self.new_message_handler, filters.private & (filters.document | filters.command("start"))))
-        self.client.add_handler(CallbackQueryHandler(self.callback_query_handler)) # Handles inline button presses
-
-        logger.info("🚀 Logging in...")
+        self.register_handlers()
+        
+        logger.info("Bot is starting up...")
         await self.client.start()
-        me = await self.client.get_me()
-        logger.info(f"🤖 Bot ready: @{me.username} (ID: {me.id})")
+        
+        user_info = await self.client.get_me()
+        logger.info(f"Bot started as @{user_info.username} (ID: {user_info.id})")
+        
+        # Keep the bot running indefinitely
+        await asyncio.Event().wait()
 
-        try:
-            # Keep the bot running indefinitely
-            await asyncio.Future() 
-        except asyncio.CancelledError:
-            logger.info("Bot shutting down due to cancellation.")
-        except Exception as e:
-            logger.critical(f"An unhandled error occurred in the main bot loop, shutting down: {e}", exc_info=True)
-        finally:
-            if self.client and self.client.is_connected:
-                logger.info("Disconnecting bot client...")
-                await self.client.stop()
-                logger.info("Bot disconnected.")
-            # Ensure any remaining temporary directories are cleaned up on graceful shutdown
-            if self.user_extraction_sessions:
-                logger.info(f"Cleaning up {len(self.user_extraction_sessions)} remaining sessions during shutdown.")
-                for chat_id, session_data in list(self.user_extraction_sessions.items()):
-                    temp_dir = session_data.get('temp_dir')
-                    if temp_dir and temp_dir.exists():
-                        shutil.rmtree(temp_dir, ignore_errors=True)
-                        logger.info(f"Cleaned up remaining directory for chat {chat_id} during shutdown: {temp_dir}")
-                    del self.user_extraction_sessions[chat_id]
-            logger.info("Bot shutdown complete.")
+        # Graceful shutdown
+        logger.info("Bot is shutting down...")
+        await self.client.stop()
 
+# --- Main execution block ---
+async def main():
+    bot = UltimateBot()
+    await bot.run()
 
 if __name__ == "__main__":
-    # --- Cleanup old 'downloads' directory before starting, but preserve session ---
-    logger.info("Performing pre-start cleanup: Deleting old downloads directory.")
-    
-    downloads_path = Path("downloads")
-    if downloads_path.exists():
-        try:
-            shutil.rmtree(downloads_path)
-            logger.info(f"Successfully deleted old downloads directory: {downloads_path}")
-        except OSError as e:
-            logger.error(f"Error deleting downloads directory {downloads_path}: {e}")
-    # --- End Cleanup ---
-
-    # Ensure the downloads directory exists for the new session
-    # This will create it freshly if it was just deleted or didn't exist
-    downloads_path.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Ensured fresh downloads directory: {downloads_path}")
-    
-    bot = UltimateBot()
-    asyncio.run(bot.run())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Shutdown signal received. Exiting.")
+    except Exception as e:
+        logger.critical(f"Critical error in main execution: {e}", exc_info=True)
