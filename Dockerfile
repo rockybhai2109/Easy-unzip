@@ -1,6 +1,5 @@
 # Use a suitable base image. Python 3.13 is used here as per your logs.
-FROM python:3.13-slim-buster
-
+FROM python:3.13-slim
 # Install unrar and other necessary system dependencies.
 # apt-get update is crucial before installing new packages.
 RUN apt-get update && apt-get install -y unrar
