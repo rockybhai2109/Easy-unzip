@@ -5,13 +5,20 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 class _HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == "/":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"OK")
-        else:
-            self.send_error(404)
+        """Handles GET requests, which a browser or user might make."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def do_HEAD(self):
+        """
+        Handles HEAD requests for Render's health check.
+        It sends the same headers as a GET request but no body.
+        """
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
 
 def _run_health_server():
     port = int(os.environ.get("PORT", 8080))
