@@ -268,14 +268,14 @@ class UltimateBot:
 
         return InlineKeyboardMarkup(buttons)
 
-async def new_message_handler(self, client: Client, message: types.Message):
-        """Handles incoming messages."""
-        # More robust /start command handling
-        if message.text and (message.text.startswith('/start') or message.text.lower() == '/start'):
-            await self.send_text(message.chat.id, (
-                "👋 Hello! Send me a `.zip`, `.7z`, or `.rar` archive and I'll unzip it and let you choose which files to download."
-            ))
-            return
+    async def start_command_handler(self, client: Client, message: types.Message):
+        """Handles the /start command."""
+        await self.send_text(message.chat.id, (
+            "👋 Hello! Send me a `.zip`, `.7z`, or `.rar` archive and I'll unzip it and let you choose which files to download."
+        ))
+
+    async def document_handler(self, client: Client, message: types.Message):
+        """Handles incoming document messages."""
 
         if message.document:
             file_name = message.document.file_name
@@ -305,6 +305,9 @@ async def new_message_handler(self, client: Client, message: types.Message):
                     reply_markup=reply_markup
                 )
                 return
+
+            self.active_downloads.add(remote_file_unique_id)
+            asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
 
             self.active_downloads.add(remote_file_unique_id)
             asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
