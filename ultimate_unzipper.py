@@ -276,7 +276,6 @@ class UltimateBot:
 
     async def document_handler(self, client: Client, message: types.Message):
         """Handles incoming document messages."""
-
         if message.document:
             file_name = message.document.file_name
             remote_file_unique_id = message.document.file_unique_id
@@ -305,9 +304,6 @@ class UltimateBot:
                     reply_markup=reply_markup
                 )
                 return
-
-            self.active_downloads.add(remote_file_unique_id)
-            asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
 
             self.active_downloads.add(remote_file_unique_id)
             asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
@@ -575,22 +571,29 @@ class UltimateBot:
             logger.error(f"Failed to send document to {chat_id}: {e}")
         return None
 
+
     def register_handlers(self):
         """Registers all the necessary handlers with the client."""
         if not self.client:
             raise RuntimeError("Client not initialized. Call _get_client first.")
         
+        # Separate handlers for better organization
         self.client.add_handler(
             MessageHandler(
-                self.new_message_handler,
-                filters=filters.document | filters.command("start")
+                self.start_command_handler,
+                filters=filters.command("start")
+            )
+        )
+        self.client.add_handler(
+            MessageHandler(
+                self.document_handler,
+                filters=filters.document
             )
         )
         self.client.add_handler(
             CallbackQueryHandler(self.callback_query_handler)
         )
         logger.info("Message and callback handlers have been registered.")
-
     async def run(self):
         """Initializes the client, registers handlers, and starts the bot."""
         self.client = await self._get_client()
