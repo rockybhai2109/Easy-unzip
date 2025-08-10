@@ -338,8 +338,11 @@ class UltimateBot:
                 await self.send_text(message.chat.id, "❌ Unable to process: File details missing.")
                 return
 
-            if not (file_name.lower().endswith(('.zip', '.7z', '.rar'))):
-                return await self.send_text(message.chat.id, "❌ Only `.zip`, `.7z`, and `.rar` files are supported.")
+            if not (
+                file_name.lower().endswith(('.zip', '.7z', '.rar'))
+                or file_name.lower().endswith(tuple([f".zip.{str(i).zfill(3)}" for i in range(1, 1000)]))
+            ):
+                return await self.send_text(message.chat.id, "❌ Only `.zip`, `.zip.###`, `.7z`, and `.rar` files are supported.")
 
             if remote_file_unique_id in self.active_downloads:
                 return await self.send_text(message.chat.id, "⏳ Already processing this file. Please wait.")
@@ -403,9 +406,21 @@ class UltimateBot:
 
             await self.edit_text(chat_id, status_id, f"📦 Unzipping `{file_name}`...")
 
-            if file_name.lower().endswith('.zip'):
+            if file_name.lower().endswith(tuple([f".zip.{str(i).zfill(3)}" for i in range(1, 1000)])):
+    # No extraction — just send as video
+                await self.edit_text(chat_id, status_id, f"📤 Sending `{file_name}` as video...")
+                try:
+                    await self.send_streamable_video(chat_id, str(local_file_path), caption=f"`{file_name}`")
+                    self.active_downloads.remove(remote_file_unique_id)
+                    return
+                except Exception as e:
+                    logger.error(f"Failed to send {file_name} as video: {e}")
+                    await self.edit_text(chat_id, status_id, f"❌ Failed to send `{file_name}` as video.")
+                    return
+            elif file_name.lower().endswith('.zip'):
                 with zipfile.ZipFile(local_file_path, 'r') as z:
                     z.extractall(download_dir)
+
             elif file_name.lower().endswith('.7z'):
                 with py7zr.SevenZipFile(local_file_path, 'r') as z:
                     z.extractall(path=download_dir)
