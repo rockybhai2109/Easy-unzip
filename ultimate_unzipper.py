@@ -637,17 +637,45 @@ class UltimateBot:
             logger.warning(f"Failed to edit message {message_id} in {chat_id}: {e}")
         return None
 
+
     async def send_streamable_video(self, chat_id: int, video: str, **kwargs):
         try:
+        # --- Generate thumbnail ---
+            thumb_path = tempfile.mktemp(suffix=".jpg")
+            try:
+            # Extract a frame at 1 second
+                (
+                    ffmpeg
+                    .input(video, ss=1)
+                    .filter('scale', 320, -1)
+                    .output(thumb_path, vframes=1)
+                    .overwrite_output()
+                    .run(quiet=True)
+                )
+            except Exception as e:
+                logger.warning(f"Thumbnail generation failed for {video}: {e}")
+                thumb_path = None
+
+        # --- Get duration in seconds ---
+            duration_sec = None
+            try:
+                probe = ffmpeg.probe(video)
+                duration_sec = int(float(probe['format']['duration']))
+            except Exception as e:
+                logger.warning(f"Duration check failed for {video}: {e}")
+
             return await self.client.send_video(
                 chat_id,
                 video,
-                supports_streaming=True,  # Enables streaming
+                supports_streaming=True,
+                duration=duration_sec,
+                thumb=thumb_path if thumb_path else None,
                 **kwargs
             )
         except RPCError as e:
             logger.error(f"Failed to send streamable video to {chat_id}: {e}")
-        return None
+
+
 
 
 
