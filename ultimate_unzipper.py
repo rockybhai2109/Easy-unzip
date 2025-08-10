@@ -10,6 +10,7 @@ import tempfile
 import re
 import logging
 import sys
+from pathlib import Path
 
 # Ensure stdout/stderr use UTF-8
 if sys.stdout.encoding != 'utf-8':
@@ -46,10 +47,22 @@ class _HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-
 def sanitize_filename(filename: str) -> str:
-    # Replace @tags like @abc with @ii_LevelUP_ii
-    return re.sub(r'@[\w_]+', '@ii_LevelUP_ii', filename)
+    # Get the base name and extension
+    base = Path(filename).stem
+    ext = Path(filename).suffix
+
+    # Remove any existing @tags
+    base = re.sub(r'@[\w_]+', '', base)
+
+    # Ensure default tag is appended once
+    if "@ii_LevelUP_ii" not in base:
+        base = f"{base}@ii_LevelUP_ii"
+
+    # Remove double spaces or underscores from cleanup
+    base = re.sub(r'\s+', ' ', base).strip()
+
+    return f"{base}{ext}"
 
 def _run_health_server():
     port = int(os.environ.get("PORT", 8080))
@@ -306,8 +319,8 @@ class UltimateBot:
                     display_path = file_path.name
                 
                 button_text = str(display_path)
-                if len(button_text) > 50:
-                    button_text = "..." + button_text[-47:]
+                if len(button_text) > 150:
+                    button_text = "..." + button_text[-147:]
                 
                 if i in selected_indices:
                     button_text = f"✅ {button_text}"
