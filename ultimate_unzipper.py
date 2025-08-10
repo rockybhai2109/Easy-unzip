@@ -5,6 +5,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pyrogram import Client, filters
 from pyrogram.types import Message
 import logging
+import ffmpeg
+import tempfile
 
 import logging
 import sys
