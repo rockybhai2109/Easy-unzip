@@ -376,9 +376,7 @@ class UltimateBot:
 
             self.active_downloads.add(remote_file_unique_id)
             asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
-            self.active_downloads.add(remote_file_unique_id)
-            asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
-
+            
     async def process_file(self, chat_id: int, document: types.Document, remote_file_unique_id: str, client: Client):
         """ Handles the download, extraction, and presentation of files for selection. """
         file_name = document.file_name
