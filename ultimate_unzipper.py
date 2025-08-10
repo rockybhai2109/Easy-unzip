@@ -6,6 +6,26 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import logging
 
+import logging
+import sys
+
+# Ensure stdout/stderr use UTF-8
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1)
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf-8', buffering=1)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("bot.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
 class _HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handles GET requests, which a browser or user might make."""
@@ -73,20 +93,6 @@ PROXY_CONFIG = {
 
 # --- Set up logging with UTF-8 encoding for console ---
 # Set console output encoding to UTF-8
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1)
-if sys.stderr.encoding != 'utf-8':
-    sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf-8', buffering=1)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("bot.log", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logging.getLogger("pyrogram").setLevel(logging.WARNING)  # Reduce Pyrogram noise
 
 
 bot = Client(
