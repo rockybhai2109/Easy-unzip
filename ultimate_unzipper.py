@@ -7,7 +7,7 @@ from pyrogram.types import Message
 import logging
 import ffmpeg
 import tempfile
-
+import re
 import logging
 import sys
 
@@ -44,6 +44,12 @@ class _HealthHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
+
+
+
+def sanitize_filename(filename: str) -> str:
+    # Replace @tags like @abc with @ii_LevelUP_ii
+    return re.sub(r'@[\w_]+', '@ii_LevelUP_ii', filename)
 
 def _run_health_server():
     port = int(os.environ.get("PORT", 8080))
@@ -370,11 +376,14 @@ class UltimateBot:
 
             self.active_downloads.add(remote_file_unique_id)
             asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
-            
+            self.active_downloads.add(remote_file_unique_id)
+            asyncio.create_task(self.process_file(message.chat.id, message.document, remote_file_unique_id, client))
+
     async def process_file(self, chat_id: int, document: types.Document, remote_file_unique_id: str, client: Client):
         """ Handles the download, extraction, and presentation of files for selection. """
         file_name = document.file_name
         file_size_from_tg = document.file_size
+        file_name = sanitize_filename(file_name)
         
         status_message = await self.send_text(chat_id, f"⬇️ Downloading `{file_name}`...\n[□□□□□□□□□□□□□□□□□□□□] 0.0%")
 
@@ -647,7 +656,7 @@ class UltimateBot:
                 (
                     ffmpeg
                     .input(video, ss=1)
-                    .filter('scale', 320, -1)
+                    .filter('scale', 1080, 720)
                     .output(thumb_path, vframes=1)
                     .overwrite_output()
                     .run(quiet=True)
