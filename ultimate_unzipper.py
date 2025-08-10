@@ -2,6 +2,9 @@
 # Health-check server — goes above everything
 import os, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from pyrogram import Client, filters
+from pyrogram.types import Message
+import logging
 
 class _HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
