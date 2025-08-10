@@ -410,6 +410,7 @@ class UltimateBot:
         try:
             download_dir = Path(f"downloads/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{chat_id}")
             os.makedirs(download_dir, exist_ok=True)
+            file_name = sanitize_filename(document.file_name)
             local_file_path = download_dir / file_name
 
             if not document.file_id:
