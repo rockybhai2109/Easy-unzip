@@ -11,6 +11,7 @@ import re
 import logging
 import sys
 from pathlib import Path
+import mimetypes
 
 # Ensure stdout/stderr use UTF-8
 if sys.stdout.encoding != 'utf-8':
