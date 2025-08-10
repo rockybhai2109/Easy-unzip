@@ -614,12 +614,18 @@ class UltimateBot:
             logger.warning(f"Failed to edit message {message_id} in {chat_id}: {e}")
         return None
 
-    async def send_document(self, chat_id: int, document: str, **kwargs):
+    async def send_streamable_video(self, chat_id: int, video: str, **kwargs):
         try:
-            return await self.client.send_document(chat_id, document, **kwargs)
+            return await self.client.send_video(
+                chat_id,
+                video,
+                supports_streaming=True,  # Enables streaming
+                **kwargs
+            )
         except RPCError as e:
-            logger.error(f"Failed to send document to {chat_id}: {e}")
+            logger.error(f"Failed to send streamable video to {chat_id}: {e}")
         return None
+
 
 
     def register_handlers(self):
