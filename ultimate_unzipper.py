@@ -53,11 +53,11 @@ def sanitize_filename(filename: str) -> str:
     ext = Path(filename).suffix
 
     # Remove any existing @tags
-    base = re.sub(r'@[\w_]+', '', base)
+    base = re.sub(r'@[\w_]+', '@ii_LevelUP_ii', base)
 
     # Ensure default tag is appended once
     if "@ii_LevelUP_ii" not in base:
-        base = f"{base}@ii_LevelUP_ii"
+        base = f"{base} @ii_LevelUP_ii"
 
     # Remove double spaces or underscores from cleanup
     base = re.sub(r'\s+', ' ', base).strip()
