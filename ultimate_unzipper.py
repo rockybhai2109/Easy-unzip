@@ -139,67 +139,78 @@ Feel free to explore and let me know if you need any assistance!
 FILES_PER_PAGE = 10 # Number of files to show per page for multi-selection
 
 
-# --- Helper function for progress bar ---
-import time
-from pyrogram import enums
-from typing import Dict, Any
-import logging
+def format_progress_bar(current: int, total: int) -> str:
+    """Formats a simple text-based progress bar."""
+    if total <= 0: # Handle cases where total is 0 or unknown
+        return "[□□□□□□□□□□□□□□□□□□□□] 0.0%"
+    
+    percentage = current * 100 / total
+    # Clamp percentage between 0 and 100
+    percentage = max(0.0, min(100.0, percentage))
 
-logger = logging.getLogger(__name__)
+    filled_blocks = int(percentage // 5)
+    empty_blocks = 20 - filled_blocks
 
-def format_progress_bar(current: int, total: int, length: int = 10) -> str:
-    """Formats a circular-style progress bar using ⚪ and ⚫."""
-    if total <= 0:
-        return "⚪" * length
-    percentage = max(0.0, min(100.0, current * 100 / total))
-    filled = int(length * percentage / 100)
-    return "⚫" * filled + "⚪" * (length - filled)
+    progress_bar = "■" * filled_blocks + "□" * empty_blocks
+    return f"[{progress_bar}] {percentage:.1f}%"
 
-def format_eta(current: int, total: int, speed_bps: float) -> str:
-    """Returns ETA as human-readable time."""
-    if speed_bps <= 0:
-        return "Unknown"
-    remaining = total - current
-    seconds = int(remaining / speed_bps)
-    if seconds < 60:
-        return f"{seconds} Second{'s' if seconds != 1 else ''}"
-    minutes, seconds = divmod(seconds, 60)
-    return f"{minutes}m {seconds}s"
-
-async def upload_progress_callback(current: int, total: int, client_data: Dict[str, Any]):
+# --- Async progress callback function ---
+async def progress_callback_func(current: int, total: int, client_data: Dict[str, Any]):
     """
-    Async progress callback for uploads with styled output.
+    Callback function for pyrogram's download/upload operations to update message.
+    Updates the message every 3-5 seconds or when percentage changes significantly.
     """
     message_to_edit = client_data['message']
     file_name = client_data['file_name']
     start_time = client_data['start_time']
-    file_index = client_data.get('file_index', '?')
-    total_files = client_data.get('total_files', '?')
+    last_update_time = client_data.get('last_update_time', start_time)
+    last_updated_percentage = client_data.get('last_updated_percentage', 0)
 
-    elapsed = time.time() - start_time
-    speed_bps = current / elapsed if elapsed > 0 else 0
-    speed_mbps = speed_bps / (1024 * 1024)
+    # Prioritize explicit_total_size from client_data if available
+    effective_total = client_data.get('explicit_total_size')
+    if effective_total is None or effective_total <= 0:
+        effective_total = total # Fallback to the 'total' passed by Pyrogram if our explicit one is bad
 
-    bar = format_progress_bar(current, total)
-    percentage = (current * 100 / total) if total > 0 else 0
-    eta = format_eta(current, total, speed_bps)
+    elapsed_time = time.time() - start_time
+    download_speed = current / elapsed_time if elapsed_time > 0 else 0
 
-    status_text = (
-        f"📤 **Uᴘʟᴏᴀᴅɪɴɢ ({file_index}/{total_files}):** `{file_name}`\n"
-        f"{bar}\n"
-        f"⏳ **Dᴏɴᴇ:** `{percentage:.2f}%`\n"
-        f"📂 **Sɪᴢᴇ:** `{current / (1024*1024):.2f} MB / {total / (1024*1024):.2f} MB`\n"
-        f"🚀 **Sᴘᴇᴇᴅ:** `{speed_mbps:.2f} MB/s`\n"
-        f"⏰ **Eᴛᴀ:** {eta}"
-    )
+    status_text = ""
+    percentage = 0
 
-    last_update_time = client_data.get('last_update_time', 0)
-    if time.time() - last_update_time >= 2 or percentage == 100:
+    if effective_total is not None and effective_total > 0:
+        percentage = current * 100 / effective_total
+        bar = format_progress_bar(current, effective_total)
+        speed_mbps = download_speed / (1024 * 1024) # Convert bytes/sec to MB/s
+        
+        status_text = (
+            f"⬇️ Downloading `{file_name}`...\n"
+            f"{bar}\n"
+            f"Speed: `{speed_mbps:.2f} MB/s` | Progress: `{current / (1024*1024):.2f} / {effective_total / (1024*1024):.2f} MB`"
+        )
+        
+        should_update = (last_updated_percentage == 0 and percentage > 0) or \
+                        (percentage - last_updated_percentage >= 5 and time.time() - last_update_time >= 3) or \
+                        (percentage == 100)
+    else: # Effective Total size is unknown or zero
+        status_text = (
+            f"⬇️ Downloading `{file_name}`...\n"
+            f"Progress: `{current / (1024*1024):.2f} MB` / Unknown size\n"
+            f"Speed: N/A"
+        )
+        should_update = time.time() - last_update_time >= 5
+    
+    if should_update:
         try:
-            await message_to_edit.edit_text(status_text, parse_mode=enums.ParseMode.MARKDOWN)
+            await message_to_edit.edit_text(
+                status_text,
+                parse_mode=enums.ParseMode.MARKDOWN
+            )
             client_data['last_update_time'] = time.time()
+            client_data['last_updated_percentage'] = percentage if effective_total is not None and effective_total > 0 else 0
         except Exception as e:
-            logger.warning(f"Error updating progress message for {file_name}: {e}")
+            logger.warning(f"Error updating progress message for {file_name} (msg ID: {message_to_edit.id}): {e}")
+
+
 
 
 # --- Helper to recursively list all files in a directory ---
