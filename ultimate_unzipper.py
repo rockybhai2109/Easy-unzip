@@ -516,7 +516,7 @@ class UltimateBot:
                         for attempt in range(max_retries):
                             try:
                                 logger.info(f"Chat {chat_id}: Uploading file: {file_path.name} (Attempt {attempt + 1}/{max_retries})")
-                                await self.send_document(chat_id, str(file_path), caption=f"`{file_path.name}`")
+                                await self.send_streamable_video(chat_id, str(file_path), caption=f"`{file_path.name}`")
                                 files_uploaded_count += 1
                                 break
                             except ConnectionResetError as upload_e:
