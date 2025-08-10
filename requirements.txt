@@ -8,3 +8,4 @@ python-dotenv
 # Archive formats
 py7zr
 rarfile
+ffmpeg-python
