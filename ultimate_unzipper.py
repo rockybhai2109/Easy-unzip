@@ -329,7 +329,7 @@ class UltimateBot:
     async def start_command_handler(self, client: Client, message: types.Message):
         """Handles the /start command."""
         await self.send_text(message.chat.id, (
-            "👋 Hoi! Send me a `.zip`, `.7z`, or `.rar` archive and I'll unzip it and let you choose which files to download."
+            "🎀 Hoi! Send me a `.zip`, `.7z`, or `.rar` archive and I'll unzip it and let you choose which files to download."
         ))
 
     async def document_handler(self, client: Client, message: types.Message):
