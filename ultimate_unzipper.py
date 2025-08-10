@@ -660,42 +660,58 @@ class UltimateBot:
 
 
     async def send_streamable_video(self, chat_id: int, video: str, **kwargs):
+        caption = kwargs.pop("caption", Path(video).name)
+
+    # --- Generate thumbnail ---
+        thumb_path = None
         try:
-        # --- Generate thumbnail ---
             thumb_path = tempfile.mktemp(suffix=".jpg")
-            try:
-            # Extract a frame at 1 second
-                (
-                    ffmpeg
-                    .input(video, ss=1)
-                    .filter('scale', 1080, 720)
-                    .output(thumb_path, vframes=1)
-                    .overwrite_output()
-                    .run(quiet=True)
-                )
-            except Exception as e:
-                logger.warning(f"Thumbnail generation failed for {video}: {e}")
-                thumb_path = None
-
-        # --- Get duration in seconds ---
-            duration_sec = None
-            try:
-                probe = ffmpeg.probe(video)
-                duration_sec = int(float(probe['format']['duration']))
-            except Exception as e:
-                logger.warning(f"Duration check failed for {video}: {e}")
-
-            return await self.client.send_video(
-                chat_id,
-                video,
-                supports_streaming=True,
-                duration=duration_sec,
-                thumb=thumb_path if thumb_path else None,
-                **kwargs
+            (
+                ffmpeg
+                .input(video, ss=1)
+                .filter('scale', 1080, 720)
+                .output(thumb_path, vframes=1)
+                .overwrite_output()
+                .run(quiet=True)
             )
-        except RPCError as e:
-            logger.error(f"Failed to send streamable video to {chat_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Thumbnail generation failed for {video}: {e}")
+            thumb_path = None
 
+    # --- Get duration in seconds ---
+        duration_sec = None
+        try:
+            probe = ffmpeg.probe(video)
+            duration_sec = int(float(probe['format']['duration']))
+        except Exception as e:
+            logger.warning(f"Duration check failed for {video}: {e}")
+
+    # --- Check MIME type ---
+        mime_type, _ = mimetypes.guess_type(video)
+
+        try:
+            if mime_type and mime_type.startswith("video"):
+            # Try sending as video
+                return await self.client.send_video(
+                    chat_id,
+                    video,
+                    supports_streaming=True,
+                    duration=duration_sec,
+                    thumb=thumb_path if thumb_path else None,
+                    caption=caption,
+                    **kwargs
+                )
+            else:
+            # Send as document if not a video type
+                logger.info(f"{video} is not a video file, sending as document...")
+                return await self.client.send_document(chat_id, video, caption=caption, **kwargs)
+
+        except RPCError as e:
+            logger.warning(f"send_video failed for {video}, falling back to document: {e}")
+            try:
+                return await self.client.send_document(chat_id, video, caption=caption, **kwargs)
+            except Exception as doc_e:
+                logger.error(f"Failed to send {video} as document: {doc_e}")
 
 
 
