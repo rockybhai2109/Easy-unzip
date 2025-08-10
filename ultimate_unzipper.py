@@ -65,6 +65,79 @@ def sanitize_filename(filename: str) -> str:
 
     return f"{base}{ext}"
 
+import os
+import shutil
+import tempfile
+import py7zr
+import rarfile
+import zipfile
+import tarfile
+from pathlib import Path
+
+async def try_extract_part(file_path: Path, chat_id: int, client):
+    """
+    Try extracting a single archive part and send extracted files.
+    If extraction fails, notify and skip.
+    """
+    extract_dir = Path(tempfile.mkdtemp(prefix="part_extract_"))
+    extracted = False
+    error_msg = None
+
+    try:
+        # --- ZIP ---
+        if file_path.suffix.lower() == ".zip" or ".zip" in file_path.suffixes:
+            try:
+                with zipfile.ZipFile(file_path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                extracted = True
+            except Exception as e:
+                error_msg = str(e)
+
+        # --- RAR ---
+        elif file_path.suffix.lower() == ".rar" or ".rar" in file_path.suffixes:
+            try:
+                with rarfile.RarFile(file_path) as rf:
+                    rf.extractall(extract_dir)
+                extracted = True
+            except Exception as e:
+                error_msg = str(e)
+
+        # --- 7Z ---
+        elif file_path.suffix.lower() == ".7z" or ".7z" in file_path.suffixes:
+            try:
+                with py7zr.SevenZipFile(file_path, mode='r') as sz:
+                    sz.extractall(extract_dir)
+                extracted = True
+            except Exception as e:
+                error_msg = str(e)
+
+        # --- TAR, TAR.GZ, TAR.BZ2 ---
+        elif file_path.suffix.lower() in [".tar", ".gz", ".bz2"] or ".tar" in file_path.suffixes:
+            try:
+                with tarfile.open(file_path, 'r:*') as tf:
+                    tf.extractall(extract_dir)
+                extracted = True
+            except Exception as e:
+                error_msg = str(e)
+
+    except Exception as e:
+        error_msg = str(e)
+
+    # --- Send results ---
+    if extracted:
+        for root, _, files in os.walk(extract_dir):
+            for f in files:
+                file_to_send = Path(root) / f
+                try:
+                    await client.send_document(chat_id, file_to_send, caption=f"📂 Extracted from: {file_path.name}")
+                except Exception as e:
+                    await client.send_message(chat_id, f"❌ Failed to send {f}: {e}")
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+    else:
+        await client.send_message(chat_id, f"⚠️ Could not extract `{file_path.name}` — might need more parts.\n\nError: `{error_msg}`")
+
+
 def _run_health_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), _HealthHandler)
