@@ -79,14 +79,15 @@ if sys.stderr.encoding != 'utf-8':
     sys.stderr = open(sys.stderr.fileno(), mode='w', encoding='utf-8', buffering=1)
 
 logging.basicConfig(
-    level=logging.INFO, # Set to INFO for less verbose logs (DEBUG for more detail)
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("bot.log", encoding="utf-8"), # Log to a file, ensure UTF-8
-        logging.StreamHandler(sys.stdout)      # Also log to console
+        logging.FileHandler("bot.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger(__name__)
+logging.getLogger("pyrogram").setLevel(logging.WARNING)  # Reduce Pyrogram noise
+
 
 bot = Client(
     name="my_bot",
@@ -691,6 +692,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Shutdown signal received. Exiting.")
+        logger.info("🛑 Bot stopped manually.")
     except Exception as e:
-        logger.critical(f"Critical error in main execution: {e}", exc_info=True)
+        logger.critical("💥 Critical startup error", exc_info=True)
+
