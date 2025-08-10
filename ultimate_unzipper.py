@@ -85,6 +85,53 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+bot = Client(
+    name="my_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN,
+    workers=4,  # Number of worker threads
+    sleep_threshold=60  # Flood wait threshold
+)
+
+# Alternative method using session string (if you have one)
+"""
+bot = Client(
+    name="my_bot",
+    session_string="your_session_string",
+    api_id=API_ID,
+    api_hash=API_HASH
+)
+"""
+
+# Start command handler
+@bot.on_message(filters.command("start") & (filters.private | filters.group | filters.channel))
+async def start(bot, m: Message):
+    user_name = m.from_user.first_name if m.from_user else "User"
+    
+    welcome_text = f"""
+👋 Hello {user_name}!
+
+Welcome to the bot! Here's what I can do:
+
+🔹 /help - Show available commands
+🔹 /info - Get bot information
+🔹 /settings - Configure bot settings
+
+Feel free to explore and let me know if you need any assistance!
+    """
+    
+    try:
+        await m.reply_text(
+            text=welcome_text,
+            disable_web_page_preview=True,
+            reply_to_message_id=m.id
+        )
+    except Exception as e:
+        logging.error(f"Error in start command: {e}")
+        await m.reply_text("Welcome to the bot!")
+
+
 # --- Configuration for file selection ---
 FILES_PER_PAGE = 10 # Number of files to show per page for multi-selection
 
